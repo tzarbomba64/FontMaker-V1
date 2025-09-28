@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>FontMaker V1</title>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+  <style>
+    :root{
+      --bg:#081226; /* near black/dark blue */
+      --panel:#0b1320;
+      --muted:#9aa7bf;
+      --accent:#0ea5ff; /* bright blue */
+      --accent-2:#2563eb; /* deeper blue */
+      --glass: rgba(255,255,255,0.03);
+      --card:#071126;
+      --danger:#ff6b6b;
+      --max-width:1200px;
+      font-family: Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+      color:var(--muted);
+    }
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#02040a);}
+    .app{max-width:var(--max-width);margin:18px auto;padding:14px;display:grid;grid-template-columns:320px 1fr;gap:14px}
+    .sidebar{background:linear-gradient(180deg,var(--panel),rgba(10,16,28,0.8));border-radius:12px;padding:12px;box-shadow:0 6px 20px rgba(0,0,0,0.6);}
+    .brand{display:flex;align-items:center;gap:10px;padding:8px 6px}
+    .logo{width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent-2));box-shadow:0 6px 18px rgba(14,165,255,0.12);display:flex;align-items:center;justify-content:center;font-weight:700;color:#021629}
+    h1{font-size:14px;margin:0;color:#dfe9ff}
+    p.small{font-size:12px;margin:0;color:var(--muted)}
+    .tabs{margin-top:12px}
+    .tabs-list{display:flex;flex-wrap:wrap;gap:8px}
+    .tab{background:var(--glass);padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;align-items:center;gap:8px}
+    .tab.active{outline:2px solid rgba(14,165,255,0.12);box-shadow:inset 0 1px 0 rgba(255,255,255,0.02)}
+    .tab .name{font-size:13px;color:#e7f2ff}
+    .new-font-btn{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--accent),var(--accent-2));padding:10px;border-radius:10px;color:#021629;font-weight:700;margin-top:8px;cursor:pointer}
+
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-radius:12px;padding:12px;height:calc(100vh - 64px);overflow:auto}
+    .editor-grid{display:grid;grid-template-columns:1fr 420px;gap:12px;height:100%}
+
+    /* Glyph grid */
+    .glyphs{background:linear-gradient(180deg,rgba(255,255,255,0.01),transparent);padding:10px;border-radius:10px;height:100%;display:flex;flex-direction:column}
+    .glyphs-header{display:flex;align-items:center;justify-content:space-between}
+    .glyphs-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:10px}
+    .glyph-slot{background:rgba(255,255,255,0.02);border-radius:8px;padding:10px;min-height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;position:relative}
+    .glyph-slot .ch{font-size:20px;color:#e6f4ff}
+    .glyph-slot .label{font-size:11px;color:var(--muted);margin-top:6px}
+    .glyph-slot .edit-hint{position:absolute;right:6px;bottom:6px;font-size:11px;color:var(--muted)}
+    .glyph-bigplus{display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#021629;border-radius:8px;font-weight:800;font-size:26px;height:80px}
+
+    /* Right panel: canvas and tools */
+    .right{display:flex;flex-direction:column;height:100%}
+    .canvas-wrap{background:linear-gradient(180deg,#06121d,#041022);border-radius:10px;padding:10px;flex:1;display:flex;flex-direction:column}
+    .toolbar{display:flex;gap:8px;align-items:center}
+    .tool{background:var(--glass);padding:8px;border-radius:8px;cursor:pointer}
+    .tool.active{outline:1px solid rgba(14,165,255,0.14)}
+    .canvas-area{flex:1;border-radius:8px;margin-top:8px;display:flex;align-items:center;justify-content:center}
+    canvas{background:transparent;border:1px dashed rgba(255,255,255,0.03);border-radius:6px}
+    .controls{margin-top:10px;display:flex;gap:8px;align-items:center}
+    .slider{appearance:none;height:8px;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent-2));outline:none;width:140px}
+    .color{width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);cursor:pointer}
+    .save-btn{margin-left:auto;background:linear-gradient(180deg,#34d399,#059669);padding:8px 12px;border-radius:8px;cursor:pointer;color:#021629;font-weight:700}
+    .export-btn{background:linear-gradient(180deg,#60a5fa,#2563eb);padding:8px 12px;border-radius:8px;cursor:pointer;color:#021629;font-weight:700}
+
+    /* Side-tools */
+    .side-tools{background:var(--card);border-radius:10px;padding:10px;margin-top:12px}
+    label{font-size:12px;color:var(--muted)}
+    input[type=text],input[type=number]{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--muted)}
+
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.5),rgba(0,0,0,0.6));display:flex;align-items:center;justify-content:center}
+    .modal{background:linear-gradient(180deg,#071228,#071020);padding:16px;border-radius:12px;width:460px}
+    .modal h3{margin:0;color:#e8f3ff}
+    .muted{color:var(--muted)}
+
+    footer{margin-top:12px;color:var(--muted);font-size:12px}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="brand">
+      <div class="logo">GF</div>
+      <div>
+        <h1>Glyph Foundry — Dark UI</h1>
+        <p class="small">Design glyphs & export working fonts (prototype)</p>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <strong style="color:#dfe9ff">Fonts</strong>
+        <div class="new-font-btn" id="createFontBtn">+ New Font</div>
+      </div>
+      <div class="tabs-list" id="fontTabs"></div>
+    </div>
+
+    <div class="side-tools">
+      <label>Selected font:</label>
+      <div id="selectedFontName" style="font-weight:700;color:#e6f4ff;margin:6px 0">—</div>
+      <label>Font metadata</label>
+      <input type="text" id="metaFamily" placeholder="Family name" />
+      <input type="text" id="metaStyle" placeholder="Style (e.g. Regular)" style="margin-top:8px"/>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="export-btn" id="exportFont">Export .ttf</button>
+        <label class="tool" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer"><input id="importFontInput" type="file" accept=".ttf,.otf,.woff,.woff2" style="display:none"/>Import</label>
+      </div>
+      <p style="font-size:12px;margin-top:8px" class="muted">Each font can contain up to <strong>113</strong> glyphs (configurable).</p>
+      <footer>Double-click a glyph to open editor. Click the big blue + in the grid to add a glyph.</footer>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="editor-grid">
+      <div class="glyphs">
+        <div class="glyphs-header">
+          <strong style="color:#e6f4ff">Glyphs</strong>
+          <div class="muted">Slots used: <span id="slotCount">0</span>/113</div>
+        </div>
+        <div class="glyphs-grid" id="glyphGrid"></div>
+      </div>
+
+      <div class="right">
+        <div class="canvas-wrap">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div class="toolbar" id="toolBar"></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="color" id="colorPicker" class="color" title="Stroke color" value="#ffffff"/>
+              <input type="range" id="sizeSlider" min="1" max="120" value="16" class="slider" title="Size"/>
+              <div class="save-btn" id="saveGlyphBtn">Save glyph</div>
+            </div>
+          </div>
+
+          <div class="canvas-area">
+            <canvas id="editorCanvas" width="640" height="640"></canvas>
+          </div>
+
+          <div class="controls">
+            <div class="muted">Brush:</div>
+            <select id="brushSelect">
+              <option value="pencil">Pencil</option>
+              <option value="smooth">Smooth brush</option>
+              <option value="jagged">Jagged</option>
+              <option value="spray">Dust / Spray</option>
+              <option value="pattern">Pattern</option>
+              <option value="eraser">Eraser</option>
+            </select>
+            <label class="muted">Opacity</label>
+            <input type="range" id="opacitySlider" min="0.05" max="1" step="0.05" value="1" class="slider"/>
+            <div style="margin-left:auto;display:flex;gap:8px">
+              <button class="tool" id="clearBtn">Clear</button>
+              <button class="tool" id="undoBtn">Undo</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-tools" style="margin-top:12px">
+          <label>Glyph properties</label>
+          <input type="text" id="glyphName" placeholder="Glyph name / label" style="margin-top:8px"/>
+          <input type="text" id="glyphChar" placeholder="Character (optional)" style="margin-top:8px"/>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+            <label>Advance width</label>
+            <input type="number" id="advanceWidth" value="600" min="50" max="2000"/>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modals & templates -->
+<div id="modalRoot" style="display:none"></div>
+
+<!-- Opentype.js (used for TTF generation + parsing) -->
+<script src="https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js"></script>
+
+<script>
+// == Glyph Foundry - single-file prototype ==
+// Features implemented (prototype):
+// - Dark themed UI
+// - Tabbed fonts list + Create new font modal (with optional import)
+// - Glyph grid (max 113 glyphs per font)
+// - Click + to add glyph, double-click to edit
+// - Vector stroke capture (stores strokes as arrays of points + brush meta)
+// - Multiple brush types emulated (jagged, spray, pattern) — all strokes are vector-like
+// - Save glyph stores stroke data and properties
+// - Export font using opentype.js: we convert strokes to a simple polygonal outline by buffering each stroke segment.
+//   This is a naive but functional technique to get working glyphs inside a TTF.
+// - Import .ttf/.otf via opentype.js to pre-populate glyph slots (best effort)
+// Limitations: This is a prototype; outlines are approximations, and very complex strokes may not export perfectly.
+
+const MAX_GLYPHS = 113;
+
+// Application state
+let fonts = [];
+let selectedFontIndex = -1;
+let selectedGlyphIndex = -1;
+
+// Utilities: DOM
+const el = id => document.getElementById(id);
+
+// Create sample build
+function createNewFontObject(name='NewFont'){
+  return {
+    id: crypto.randomUUID(),
+    family: name,
+    style: 'Regular',
+    glyphs: [], // each: {name, char, advanceWidth, strokes:[{points,brush,size,color,opacity}], fill:'#fff'}
+  }
+}
+
+// Add UI handlers
+const fontTabs = el('fontTabs');
+const glyphGrid = el('glyphGrid');
+const slotCount = el('slotCount');
+const selectedFontName = el('selectedFontName');
+
+function renderFontTabs(){
+  fontTabs.innerHTML='';
+  fonts.forEach((f,idx)=>{
+    const t = document.createElement('div'); t.className='tab'+(idx===selectedFontIndex? ' active':'');
+    t.dataset.idx=idx;
+    t.innerHTML = `<div class="name">${escapeHtml(f.family)}</div>`;
+    t.onclick = ()=>{ selectedFontIndex=idx; render(); };
+    fontTabs.appendChild(t);
+  });
+}
+
+function renderGlyphGrid(){
+  glyphGrid.innerHTML='';
+  if(selectedFontIndex<0) return;
+  const font = fonts[selectedFontIndex];
+  for(let i=0;i<MAX_GLYPHS;i++){
+    const slot = document.createElement('div'); slot.className='glyph-slot';
+    if(i<font.glyphs.length){
+      const g = font.glyphs[i];
+      slot.innerHTML = `<div class="ch">${escapeHtml(g.char||'&nbsp;')}</div><div class="label">${escapeHtml(g.name||('glyph_'+i))}</div><div class="edit-hint">dblclick</div>`;
+      slot.ondblclick = ()=>{ openGlyphInEditor(i); };
+      slot.onclick = ()=>{ selectGlyph(i); };
+    } else if(i===font.glyphs.length){
+      // the next available slot - show big plus
+      slot.innerHTML = `<div class="glyph-bigplus">+</div>`;
+      slot.onclick = ()=>{ openCreateGlyphDialog(); };
+    } else {
+      slot.innerHTML = `<div style="opacity:0.25">empty</div>`;
+    }
+    glyphGrid.appendChild(slot);
+  }
+  slotCount.textContent = font.glyphs.length;
+}
+
+function render(){
+  renderFontTabs();
+  renderGlyphGrid();
+  if(selectedFontIndex>=0){
+    const f = fonts[selectedFontIndex];
+    selectedFontName.textContent = f.family + ' — ' + f.style;
+    el('metaFamily').value = f.family;
+    el('metaStyle').value = f.style;
+  } else {
+    selectedFontName.textContent = '—';
+    el('metaFamily').value = ''; el('metaStyle').value='';
+  }
+}
+
+// Simple escape
+function escapeHtml(s){ if(!s) return ''; return s.toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+// Create new font flow
+el('createFontBtn').onclick = ()=>{
+  openCreateFontModal();
+}
+
+function openCreateFontModal(){
+  const modal = makeModal(`
+    <h3>Create new font</h3>
+    <p class="muted">Enter a font family name and optionally import an existing font file to seed glyphs.</p>
+    <div style="margin-top:8px"><input id="modalFamily" placeholder="Family name" style="width:100%;padding:8px;border-radius:8px;background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03)"/></div>
+    <div style="margin-top:8px"><input id="modalImport" type="file" accept=".ttf,.otf,.woff,.woff2"/></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="modalCreate">Create</button></div>
+  `);
+  modal.querySelector('#modalCreate').onclick = async ()=>{
+    const fam = modal.querySelector('#modalFamily').value.trim() || 'NewFont';
+    const fobj = createNewFontObject(fam);
+    const fileInput = modal.querySelector('#modalImport');
+    if(fileInput.files && fileInput.files.length>0){
+      const file = fileInput.files[0];
+      try{
+        const arrayBuffer = await file.arrayBuffer();
+        const parsed = opentype.parse(arrayBuffer);
+        // attempt to import up to MAX_GLYPHS from parsed glyphs
+        let count=0;
+        for(let gi=0; gi<parsed.glyphs.glyphs.length && count<MAX_GLYPHS; gi++){
+          const pg = parsed.glyphs.glyphs[gi];
+          if(!pg) continue;
+          // only import glyphs with unicode or simple shapes
+          const name = pg.name || ('g'+gi);
+          const char = typeof pg.unicode === 'number' ? String.fromCharCode(pg.unicode) : '';
+          // naive: store an empty stroke that will be rendered as path from outlines if present
+          const imported = {name, char, advanceWidth: pg.advanceWidth || 600, strokes: [], outlines: pg.path ? pg.path.commands : null};
+          fobj.glyphs.push(imported); count++;
+        }
+      }catch(e){ console.warn('Import failed',e); }
+    }
+    fonts.push(fobj);
+    selectedFontIndex = fonts.length-1;
+    closeModal(); render();
+  };
+}
+
+// Glyph creation dialog
+function openCreateGlyphDialog(){
+  if(selectedFontIndex<0) return alert('Create/select a font first');
+  const modal = makeModal(`
+    <h3>Create glyph</h3>
+    <div style="margin-top:8px"><input id="gName" placeholder="Glyph name (e.g. A)" style="width:100%;padding:8px;border-radius:8px;background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03)"/></div>
+    <div style="margin-top:8px"><input id="gChar" placeholder="Character (optional, single)" maxlength="2" style="width:100%;padding:8px;border-radius:8px;background:transparent;color:var(--muted);border:1px solid rgba(255,255,255,0.03)"/></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button id="gCreate">Create</button></div>
+  `);
+  modal.querySelector('#gCreate').onclick = ()=>{
+    const name = modal.querySelector('#gName').value.trim() || ('glyph_'+(fonts[selectedFontIndex].glyphs.length));
+    const ch = modal.querySelector('#gChar').value ? modal.querySelector('#gChar').value.charAt(0) : '';
+    if(fonts[selectedFontIndex].glyphs.length >= MAX_GLYPHS){ alert('Max glyphs reached'); return; }
+    fonts[selectedFontIndex].glyphs.push({name, char: ch, advanceWidth:600, strokes:[], fill:'#fff'});
+    closeModal(); render();
+    // open the editor for the newly-created glyph
+    openGlyphInEditor(fonts[selectedFontIndex].glyphs.length-1);
+  };
+}
+
+// Modal helpers
+function makeModal(innerHtml){
+  const root = document.getElementById('modalRoot'); root.style.display='block'; root.innerHTML='';
+  const backdrop = document.createElement('div'); backdrop.className='modal-backdrop';
+  const m = document.createElement('div'); m.className='modal'; m.innerHTML = innerHtml;
+  const closeBtn = document.createElement('div'); closeBtn.style="position:absolute;right:18px;top:10px;cursor:pointer;color:var(--muted)"; closeBtn.innerHTML='✕'; closeBtn.onclick = closeModal;
+  m.appendChild(closeBtn);
+  backdrop.appendChild(m);
+  root.appendChild(backdrop);
+  return m;
+}
+function closeModal(){ const root = document.getElementById('modalRoot'); root.style.display='none'; root.innerHTML=''; }
+
+// Editor implementation
+const c = document.getElementById('editorCanvas');
+const ctx = c.getContext('2d');
+let drawing = false; let currentStroke = null; let strokesForEdit = null;
+let tool = 'pencil';
+
+const toolBar = el('toolBar');
+['pencil','smooth','jagged','spray','pattern','eraser'].forEach(t=>{
+  const d = document.createElement('div'); d.className='tool'; d.dataset.tool=t; d.textContent=t[0].toUpperCase()+t.slice(1);
+  d.onclick = ()=>{ tool = t; document.querySelectorAll('.tool').forEach(x=>x.classList.remove('active')); d.classList.add('active'); };
+  toolBar.appendChild(d);
+});
+// set default
+document.querySelectorAll('.tool')[0].classList.add('active');
+
+// brush settings
+const colorPicker = el('colorPicker');
+const sizeSlider = el('sizeSlider');
+const opacitySlider = el('opacitySlider');
+const brushSelect = el('brushSelect');
+
+// stroke model: {points:[{x,y}], brush, size, color, opacity}
+
+function getMouse(e){
+  const rect = c.getBoundingClientRect();
+  const x = (e.clientX-rect.left) * (c.width/rect.width);
+  const y = (e.clientY-rect.top) * (c.height/rect.height);
+  return {x,y};
+}
+
+c.addEventListener('pointerdown', (ev)=>{
+  drawing=true; currentStroke = {points:[],brush:tool,size:parseFloat(sizeSlider.value),color:colorPicker.value,opacity:parseFloat(opacitySlider.value)};
+  const p = getMouse(ev); currentStroke.points.push(p);
+});
+c.addEventListener('pointermove', (ev)=>{
+  if(!drawing) return;
+  const p = getMouse(ev); currentStroke.points.push(p);
+  redrawCanvasLive();
+});
+c.addEventListener('pointerup', ()=>{
+  if(!drawing) return; drawing=false;
+  // push stroke into ongoing strokesForEdit
+  if(!strokesForEdit) strokesForEdit = [];
+  strokesForEdit.push(currentStroke);
+  currentStroke = null;
+  redrawCanvasLive();
+});
+
+el('clearBtn').onclick = ()=>{ strokesForEdit = []; redrawCanvasLive(); };
+el('undoBtn').onclick = ()=>{ if(strokesForEdit && strokesForEdit.length>0) strokesForEdit.pop(); redrawCanvasLive(); };
+
+function redrawCanvasLive(){
+  // clear
+  ctx.clearRect(0,0,c.width,c.height);
+  // draw background grid for glyph
+  drawGrid();
+  // draw saved strokes
+  const all = (strokesForEdit||[]).concat(currentStroke? [currentStroke]:[]);
+  all.forEach(s=> drawStrokePreview(s));
+}
+
+function drawGrid(){
+  ctx.save(); ctx.globalAlpha=0.06; ctx.strokeStyle='#fff'; ctx.lineWidth=1;
+  // bounding guide box
+  ctx.strokeRect(64,64,c.width-128,c.height-128);
+  ctx.restore();
+}
+
+function drawStrokePreview(s){
+  if(!s || s.points.length<1) return;
+  ctx.save(); ctx.lineJoin='round'; ctx.lineCap='round'; ctx.globalAlpha = s.opacity||1;
+  if(s.brush==='eraser'){
+    ctx.globalCompositeOperation='destination-out'; ctx.strokeStyle='rgba(0,0,0,1)'; ctx.lineWidth = s.size||16;
+    ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y);
+    for(let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+    ctx.stroke();
+    ctx.globalCompositeOperation='source-over';
+    ctx.restore(); return;
+  }
+  // patterns: we emulate by drawing many small circles or jagged lines
+  if(s.brush==='spray'){
+    // draw spray by many dots along path
+    for(let i=0;i<s.points.length-1;i++){
+      const a = s.points[i]; const b = s.points[i+1];
+      const dist = Math.hypot(b.x-a.x,b.y-a.y);
+      const steps = Math.ceil(dist/6);
+      for(let st=0;st<steps;st++){
+        const t = st/steps; const x = a.x + (b.x-a.x)*t; const y = a.y + (b.y-a.y)*t;
+        const dots = Math.floor(s.size/3)+3;
+        for(let d=0;d<dots;d++){
+          const rx = x + (Math.random()-0.5)*s.size*2; const ry = y + (Math.random()-0.5)*s.size*2;
+          ctx.fillStyle = s.color; ctx.beginPath(); ctx.globalAlpha = 0.25*s.opacity; ctx.arc(rx,ry,Math.max(1, s.size/8),0,Math.PI*2); ctx.fill();
+        }
+      }
+    }
+    ctx.restore(); return;
+  }
+  if(s.brush==='jagged'){
+    ctx.strokeStyle = s.color; ctx.lineWidth = s.size; ctx.beginPath();
+    ctx.moveTo(s.points[0].x + randJ(0.5*s.size), s.points[0].y + randJ(0.5*s.size));
+    for(let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x + randJ(0.5*s.size), s.points[i].y + randJ(0.5*s.size));
+    ctx.stroke(); ctx.restore(); return;
+  }
+  if(s.brush==='pattern'){
+    // pattern stroke uses a small offscreen canvas to create a repeating pattern
+    const pcanvas = document.createElement('canvas'); pcanvas.width=64; pcanvas.height=64; const pctx = pcanvas.getContext('2d');
+    pctx.fillStyle = s.color; for(let i=0;i<8;i++){ pctx.fillRect((i*13)%64, (i*7)%64, 6,6); }
+    const pat = ctx.createPattern(pcanvas,'repeat'); ctx.strokeStyle = pat; ctx.lineWidth = s.size; ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y);
+    for(let i=1;i<s.points.length;i++) ctx.lineTo(s.points[i].x, s.points[i].y);
+    ctx.stroke(); ctx.restore(); return;
+  }
+  // smooth / pencil
+  ctx.strokeStyle = s.color; ctx.lineWidth = s.size; ctx.beginPath(); ctx.moveTo(s.points[0].x, s.points[0].y);
+  for(let i=1;i<s.points.length;i++){
+    if(s.brush==='smooth' && i+1<s.points.length){
+      const xc = (s.points[i].x + s.points[i+1].x)/2; const yc = (s.points[i].y + s.points[i+1].y)/2; ctx.quadraticCurveTo(s.points[i].x, s.points[i].y, xc, yc);
+    } else ctx.lineTo(s.points[i].x, s.points[i].y);
+  }
+  ctx.stroke(); ctx.restore();
+}
+
+function randJ(scale){ return (Math.random()-0.5)*scale*2; }
+
+// Editor controls (save / load glyph)
+el('saveGlyphBtn').onclick = ()=>{
+  if(selectedFontIndex<0) return alert('No font selected');
+  if(selectedGlyphIndex<0) return alert('No glyph open');
+  const font = fonts[selectedFontIndex];
+  const g = font.glyphs[selectedGlyphIndex];
+  g.strokes = (strokesForEdit || []).map(s=>({points:s.points.slice(),brush:s.brush,size:s.size,color:s.color,opacity:s.opacity}));
+  g.name = el('glyphName').value || g.name;
+  g.char = el('glyphChar').value || g.char;
+  g.advanceWidth = parseInt(el('advanceWidth').value)||g.advanceWidth;
+  alert('Glyph saved to font memory');
+  renderGlyphGrid();
+}
+
+function openGlyphInEditor(idx){
+  selectedGlyphIndex = idx;
+  const font = fonts[selectedFontIndex];
+  const g = font.glyphs[idx];
+  // load properties
+  el('glyphName').value = g.name||'';
+  el('glyphChar').value = g.char||'';
+  el('advanceWidth').value = g.advanceWidth||600;
+  strokesForEdit = g.strokes ? JSON.parse(JSON.stringify(g.strokes)) : [];
+  redrawCanvasLive();
+}
+
+function selectGlyph(idx){ selectedGlyphIndex = idx; }
+
+// Export font - conversion from strokes to simple outline polygons.
+// Approach (naive): For each stroke (series of points), we compute offset polygons perpendicular to segments to emulate filled outline.
+function strokesToOpentypePath(strokes){
+  const path = new opentype.Path();
+  strokes.forEach(s=>{
+    const half = (s.size||16)/2;
+    const pts = s.points;
+    if(!pts || pts.length<2) return;
+    // build a simple thick polyline by offsetting
+    const left = [], right = [];
+    for(let i=0;i<pts.length-1;i++){
+      const a = pts[i]; const b = pts[i+1];
+      const dx = b.x-a.x; const dy = b.y-a.y; const len = Math.hypot(dx,dy)||1;
+      const nx = -dy/len; const ny = dx/len;
+      left.push({x:a.x + nx*half, y:a.y + ny*half});
+      right.push({x:a.x - nx*half, y:a.y - ny*half});
+      if(i===pts.length-2){ // last point also add
+        left.push({x:b.x + nx*half, y:b.y + ny*half});
+        right.push({x:b.x - nx*half, y:b.y - ny*half});
+      }
+    }
+    // now make polygon path (left then reversed right)
+    const poly = left.concat(right.reverse());
+    if(poly.length<3) return;
+    path.moveTo(poly[0].x - c.width/2, c.height/2 - poly[0].y);
+    for(let i=1;i<poly.length;i++){
+      path.lineTo(poly[i].x - c.width/2, c.height/2 - poly[i].y);
+    }
+    path.close();
+  });
+  return path;
+}
+
+el('exportFont').onclick = ()=>{
+  if(selectedFontIndex<0) return alert('Select a font first');
+  const f = fonts[selectedFontIndex];
+  const family = el('metaFamily').value.trim() || f.family || 'ExportedFont';
+  const style = el('metaStyle').value.trim() || f.style || 'Regular';
+
+  // create glyphs for opentype
+  const otGlyphs = [];
+  // add .notdef glyph
+  otGlyphs.push(new opentype.Glyph({name:'.notdef',unicode:0,advanceWidth:600,path:new opentype.Path()}));
+  for(let i=0;i<f.glyphs.length;i++){
+    const g = f.glyphs[i];
+    // convert strokes to path; if imported outlines exist, attempt to use them
+    let path;
+    if(g.outlines && g.outlines.length>0){
+      // convert parsed commands to opentype.Path (best-effort)
+      path = new opentype.Path();
+      try{
+        g.outlines.forEach(cmd=>{
+          if(cmd.type==='M') path.moveTo(cmd.x - c.width/2, c.height/2 - cmd.y);
+          if(cmd.type==='L') path.lineTo(cmd.x - c.width/2, c.height/2 - cmd.y);
+          if(cmd.type==='C') path.curveTo(cmd.x1 - c.width/2, c.height/2 - cmd.y1, cmd.x2 - c.width/2, c.height/2 - cmd.y2, cmd.x - c.width/2, c.height/2 - cmd.y);
+          if(cmd.type==='Q') path.quadTo(cmd.x1 - c.width/2, c.height/2 - cmd.y1, cmd.x - c.width/2, c.height/2 - cmd.y);
+          if(cmd.type==='Z') path.close();
+        });
+      }catch(e){ console.warn('outline convert failed',e); path = strokesToOpentypePath(g.strokes || []); }
+    } else {
+      path = strokesToOpentypePath(g.strokes || []);
+    }
+    const unicode = g.char ? g.char.codePointAt(0) : undefined;
+    const glyph = new opentype.Glyph({name:g.name || ('g'+i), unicode: unicode, advanceWidth: g.advanceWidth || 600, path});
+    otGlyphs.push(glyph);
+  }
+  const ot = new opentype.Font({familyName:family, styleName:style, unitsPerEm:1000, ascender:800, descender:-200, glyphs:otGlyphs});
+  // generate ArrayBuffer and trigger download
+  const arrayBuffer = ot.toArrayBuffer();
+  const blob = new Blob([arrayBuffer],{type:'font/ttf'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download = `${family.replaceAll(' ','_')}.ttf`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
+}
+
+// import font button
+el('importFontInput').addEventListener('change', async (ev)=>{
+  const file = ev.target.files[0]; if(!file) return;
+  const arrayBuffer = await file.arrayBuffer();
+  try{
+    const parsed = opentype.parse(arrayBuffer);
+    // create new font entry using name from metadata
+    const ff = createNewFontObject(parsed.names.fontFamily ? parsed.names.fontFamily.en || parsed.names.fontFamily : 'Imported');
+    ff.style = parsed.names.fontSubfamily ? parsed.names.fontSubfamily.en || parsed.names.fontSubfamily : 'Regular';
+    // import glyphs
+    for(let gi=0; gi<parsed.glyphs.glyphs.length && ff.glyphs.length<MAX_GLYPHS; gi++){
+      const pg = parsed.glyphs.glyphs[gi];
+      if(!pg) continue;
+      const name = pg.name || ('g'+gi);
+      const char = typeof pg.unicode === 'number' ? String.fromCharCode(pg.unicode) : '';
+      ff.glyphs.push({name,char,advanceWidth:pg.advanceWidth||600,strokes:[],outlines: pg.path ? pg.path.commands : null});
+    }
+    fonts.push(ff); selectedFontIndex = fonts.length-1; render();
+  }catch(e){ alert('Failed to import font'); console.error(e); }
+});
+
+// init: create a default font
+fonts.push(createNewFontObject('Foundry')); selectedFontIndex=0; render();
+
+// helpers: download
+
+// helpers: keep canvas responsive
+window.addEventListener('resize', ()=>{/* noop for now */});
+
+</script>
+</body>
+</html>
